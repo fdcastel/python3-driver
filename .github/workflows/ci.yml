@@ -69,10 +69,29 @@ jobs:
     
     - name: Extract and install Firebird client library from container
       run: |
-        # Extract client library from the running container
-        docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+        # List available libraries in container for debugging
+        echo "Available libraries in container:"
+        docker exec firebird ls -la /opt/firebird/lib/ || docker exec firebird ls -la /usr/lib/
+        
+        # Find and extract client library from the running container
+        # Different versions may have different file names or locations
+        if docker exec firebird test -f /opt/firebird/lib/libfbclient.so; then
+          docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+        elif docker exec firebird test -f /opt/firebird/lib/libfbclient.so.2; then
+          docker cp firebird:/opt/firebird/lib/libfbclient.so.2 ${{ github.workspace }}/libfbclient.so
+        elif docker exec firebird test -f /usr/lib/libfbclient.so; then
+          docker cp firebird:/usr/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+        elif docker exec firebird test -f /usr/lib/x86_64-linux-gnu/libfbclient.so.2; then
+          docker cp firebird:/usr/lib/x86_64-linux-gnu/libfbclient.so.2 ${{ github.workspace }}/libfbclient.so
+        else
+          echo "Could not find libfbclient.so in container"
+          exit 1
+        fi
+        
+        # Install to system
         sudo cp ${{ github.workspace }}/libfbclient.so /usr/lib/x86_64-linux-gnu/
         sudo ldconfig
+        
         # Verify installation
         ldconfig -p | grep libfbclient
     
