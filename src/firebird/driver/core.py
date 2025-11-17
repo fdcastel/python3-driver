@@ -2164,9 +2164,9 @@ def _connect_helper(dsn: str, host: str, port: str, database: str, protocol: Net
         if protocol is not None:
             dsn = f'{protocol.name.lower()}://'
             if host and port:
-                dsn += f'{host}:{port}/'
+                dsn += f'{host}:{port}'
             elif host:
-                dsn += f'{host}/'
+                dsn += host
         else:
             dsn = ''
             if host and host.startswith('\\\\'): # Windows Named Pipes
