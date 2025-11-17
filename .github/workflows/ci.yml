@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ '**' ]
+    tags: [ 'v*' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install Hatch
+      run: pip install hatch
+    - name: Install Firebird
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y firebird3.0-server firebird3.0-utils
+        sudo systemctl start firebird3.0
+    - name: Run tests
+      run: hatch test
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install Hatch
+      run: pip install hatch
+    - name: Install Firebird
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y firebird3.0-server firebird3.0-utils
+        sudo systemctl start firebird3.0
+    - name: Run tests
+      run: hatch test
+    - name: Build package
+      run: hatch build
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        generate_release_notes: true
+    - name: Publish to GitHub Packages
+      uses: pypa/gh-action-pypi-publish@release
+      with:
+        repository-url: https://pypi.pkg.github.com/fdcastel
+        packages-dir: dist/
