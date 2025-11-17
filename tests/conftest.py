@@ -233,8 +233,9 @@ def db_cleanup(db_connection):
             cur.execute("delete from t")
             cur.execute("delete from t2")
             cur.execute("delete from FB4")
-            db_connection.commit()
+        db_connection.commit()
     except Exception as e:
+        db_connection.rollback()
         # Ignore errors if tables don't exist, log others
         if "Table unknown" not in str(e):
             print(f"Warning: Error during pre-test cleanup: {e}")

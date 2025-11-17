@@ -2401,10 +2401,9 @@ def create_database(database: str | Path, *, user: str | None=None, password: st
     if db_config is None:
         db_config = driver_config.db_defaults
         srv_config = driver_config.server_defaults
-        if _is_dsn(database):
-            dsn = database
-            database = None
-            srv_config.host.clear()
+        dsn = database
+        database = None
+        srv_config.host.clear()
     else:
         database = db_config.database.value
         dsn = db_config.dsn.value

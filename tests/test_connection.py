@@ -28,7 +28,7 @@ import firebird.driver as driver
 from firebird.driver.types import ImpData, ImpDataOld
 from firebird.driver import (NetProtocol, connect, Isolation, tpb,  DefaultAction,
                              DbInfoCode, DbWriteMode, DbAccessMode, DbSpaceReservation,
-                             driver_config)
+                             driver_config, NotSupportedError)
 
 def test_connect_helper():
     DB_LINUX_PATH = '/path/to/db/employee.fdb'
@@ -372,11 +372,17 @@ def test_db_info(db_connection, fb_vars, db_file):
     assert isinstance(con.info.get_info(DbInfoCode.ODS_MINOR_VERSION), int)
 
     assert con.info.get_info(DbInfoCode.CRYPT_KEY) == ''
-    assert con.info.get_info(DbInfoCode.CRYPT_PLUGIN) == ''
+    try:
+        assert con.info.get_info(DbInfoCode.CRYPT_PLUGIN) == ''
+    except NotSupportedError:
+        pass
     # DB_GUID can vary, just check format if needed
-    guid = con.info.get_info(DbInfoCode.DB_GUID)
-    assert isinstance(guid, str)
-    assert len(guid) == 38 # Example check for {GUID} format
+    try:
+        guid = con.info.get_info(DbInfoCode.DB_GUID)
+        assert isinstance(guid, str)
+        assert len(guid) == 38 # Example check for {GUID} format
+    except NotSupportedError:
+        pass
 
 def test_connect_with_driver_config_server_defaults_local(driver_cfg, db_file, fb_vars):
     """

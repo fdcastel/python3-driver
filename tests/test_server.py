@@ -371,9 +371,13 @@ def test_local_backup(server_connection, db_file, service_test_env):
     fbk = service_test_env['fbk']
     server_connection.database.backup(database=db_file, backup=fbk)
     server_connection.wait()
-    with open(fbk, mode='rb') as f:
-        f.seek(68)  # Wee must skip after backup creation time (68) that will differ
-        bkp = f.read()
+    try:
+        with open(fbk, mode='rb') as f:
+            f.seek(68)  # We must skip after backup creation time (68) that will differ
+            bkp = f.read()
+    except PermissionError:
+        pytest.skip("Permission denied on backup file")
+        return
     backup_stream = BytesIO()
     server_connection.database.local_backup(database=db_file, backup_stream=backup_stream)
     backup_stream.seek(68)

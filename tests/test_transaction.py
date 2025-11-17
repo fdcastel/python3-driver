@@ -34,6 +34,7 @@ def test_cursor(db_connection):
         tr = db_connection.main_transaction
         tr.begin()
         with tr.cursor() as cur:
+            cur.execute("delete from t")
             cur.execute("insert into t (c1) values (1)")
             tr.commit()
             cur.execute("select * from t")
@@ -46,6 +47,7 @@ def test_cursor(db_connection):
 
 def test_context_manager(db_connection):
     with db_connection.cursor() as cur:
+        cur.execute("delete from t")
         with transaction(db_connection):
             cur.execute("insert into t (c1) values (1)")
 
@@ -70,6 +72,8 @@ def test_context_manager(db_connection):
         assert rows == []
 
 def test_savepoint(db_connection):
+    with db_connection.cursor() as cur:
+        cur.execute("delete from t")
     db_connection.begin()
     tr = db_connection.main_transaction
     db_connection.execute_immediate("insert into t (c1) values (1)")
@@ -136,7 +140,7 @@ def test_tpb(db_connection):
 def test_transaction_info(db_connection, db_file):
     with db_connection.main_transaction as tr:
         assert tr.is_active()
-        assert str(db_file) in tr.info.database # Check fixture use
+        assert tr.info.database.upper() == str(db_file).upper() # Check fixture use
         assert tr.info.isolation == Isolation.SNAPSHOT
 
         assert tr.info.id > 0
