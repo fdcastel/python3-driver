@@ -137,10 +137,16 @@ def test_tpb(db_connection):
                                               TableShareMode.PROTECTED,
                                               TableAccessMode.LOCK_WRITE)]
 
-def test_transaction_info(db_connection, db_file):
+def test_transaction_info(db_connection, db_file, fb_vars):
     with db_connection.main_transaction as tr:
         assert tr.is_active()
-        assert tr.info.database.upper() == str(db_file).upper() # Check fixture use
+        # For remote connections, transaction info includes the full DSN
+        host = fb_vars['host']
+        if host is None:
+            expected_db = str(db_file).upper()
+        else:
+            expected_db = f'{host}/{fb_vars["port"]}:{db_file}'.upper()
+        assert tr.info.database.upper() == expected_db
         assert tr.info.isolation == Isolation.SNAPSHOT
 
         assert tr.info.id > 0
