@@ -194,10 +194,17 @@ def tmp_dir(tmp_path_factory):
 
 @pytest.fixture(scope='session', autouse=True)
 def db_file(tmp_dir):
-    test_db_filename: Path = tmp_dir / 'test-db.fdb'
-    copyfile(_vars_['source_db'], test_db_filename)
-    if _platform != 'Windows':
-        test_db_filename.chmod(33206)
+    # For remote servers (Docker), use the database path in the container
+    # For local servers, copy database to tmp directory
+    if _vars_['host'] is not None:
+        # Remote server - database is already in the container at /var/lib/firebird/data/
+        test_db_filename = Path('/var/lib/firebird/data/test-db.fdb')
+    else:
+        # Local server - copy database to tmp directory
+        test_db_filename = tmp_dir / 'test-db.fdb'
+        copyfile(_vars_['source_db'], test_db_filename)
+        if _platform != 'Windows':
+            test_db_filename.chmod(33206)
     driver_config.get_database('pytest').database.value = str(test_db_filename)
     return test_db_filename
 
