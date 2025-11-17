@@ -70,8 +70,8 @@ jobs:
     - name: Extract and install Firebird client library from container
       run: |
         # Extract client library from the running container
-        docker cp firebird:/opt/firebird/lib/libfbclient.so /tmp/libfbclient.so
-        sudo cp /tmp/libfbclient.so /usr/lib/x86_64-linux-gnu/
+        docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+        sudo cp ${{ github.workspace }}/libfbclient.so /usr/lib/x86_64-linux-gnu/
         sudo ldconfig
         # Verify installation
         ldconfig -p | grep libfbclient
