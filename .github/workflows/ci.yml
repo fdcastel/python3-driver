@@ -75,10 +75,10 @@ jobs:
         
         # Find and extract client library from the running container
         # Different versions may have different file names or locations
-        if docker exec firebird test -f /opt/firebird/lib/libfbclient.so; then
-          docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
-        elif docker exec firebird test -f /opt/firebird/lib/libfbclient.so.2; then
+        if docker exec firebird test -f /opt/firebird/lib/libfbclient.so.2; then
           docker cp firebird:/opt/firebird/lib/libfbclient.so.2 ${{ github.workspace }}/libfbclient.so
+        elif docker exec firebird test -f /opt/firebird/lib/libfbclient.so; then
+          docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
         elif docker exec firebird test -f /usr/lib/libfbclient.so; then
           docker cp firebird:/usr/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
         elif docker exec firebird test -f /usr/lib/x86_64-linux-gnu/libfbclient.so.2; then
