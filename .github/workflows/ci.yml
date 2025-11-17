@@ -8,53 +8,127 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        firebird-version: [3, 4, 5]
+        include:
+          - firebird-version: 3
+            db-file: fbtest30.fdb
+            docker-image: firebirdsql/firebird:3
+          - firebird-version: 4
+            db-file: fbtest40.fdb
+            docker-image: firebirdsql/firebird:4
+          - firebird-version: 5
+            db-file: fbtest50.fdb
+            docker-image: firebirdsql/firebird:5
+    
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+    
     - name: Install Hatch
       run: pip install hatch
-    - name: Install Firebird
+    
+    - name: Start Firebird Docker container
       run: |
-        sudo apt-get update
-        sudo apt-get install -y firebird3.0-server firebird3.0-utils
-        sudo systemctl start firebird3.0
+        # Create a data directory for Firebird
+        mkdir -p ${{ github.workspace }}/firebird-data
+        
+        # Copy the test database to the data directory
+        cp tests/${{ matrix.db-file }} ${{ github.workspace }}/firebird-data/test-db.fdb
+        chmod 666 ${{ github.workspace }}/firebird-data/test-db.fdb
+        
+        # Start Firebird container with the data directory mounted
+        docker run -d \
+          --name firebird \
+          -e FIREBIRD_ROOT_PASSWORD=masterkey \
+          -e ISC_PASSWORD=masterkey \
+          -p 3050:3050 \
+          -v ${{ github.workspace }}/firebird-data:/var/lib/firebird/data:rw \
+          ${{ matrix.docker-image }}
+    
+    - name: Wait for Firebird to be ready
+      run: |
+        echo "Waiting for Firebird to be fully ready..."
+        for i in {1..30}; do
+          if docker exec firebird /bin/bash -c "echo 'SELECT 1 FROM RDB\$DATABASE;' | /opt/firebird/bin/isql -u SYSDBA -p masterkey employee" &>/dev/null 2>&1; then
+            echo "Firebird is ready!"
+            exit 0
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 2
+        done
+        echo "Firebird failed to start"
+        docker logs firebird
+        exit 1
+    
+    - name: Verify database file exists
+      run: |
+        ls -la ${{ github.workspace }}/firebird-data/test-db.fdb
+        docker exec firebird ls -la /var/lib/firebird/data/test-db.fdb
+    
     - name: Run tests
-      run: hatch test
+      run: hatch test -- --host=localhost --port=3050
+      env:
+        FIREBIRD_VERSION: ${{ matrix.firebird-version }}
+    
+    - name: Stop Firebird container
+      if: always()
+      run: |
+        docker logs firebird
+        docker stop firebird
+        docker rm firebird
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Hatch
+      run: pip install hatch
+    
+    - name: Build package
+      run: hatch build
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist/
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
+      id-token: write  # Required for trusted publishing to PyPI
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
       with:
-        python-version: '3.11'
-    - name: Install Hatch
-      run: pip install hatch
-    - name: Install Firebird
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y firebird3.0-server firebird3.0-utils
-        sudo systemctl start firebird3.0
-    - name: Run tests
-      run: hatch test
-    - name: Build package
-      run: hatch build
+        name: dist
+        path: dist/
+    
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
         generate_release_notes: true
-    - name: Publish to GitHub Packages
-      uses: pypa/gh-action-pypi-publish@release
-      with:
-        repository-url: https://pypi.pkg.github.com/fdcastel
-        packages-dir: dist/
+        files: dist/*
+    
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
