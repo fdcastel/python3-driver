@@ -75,18 +75,24 @@ jobs:
         
         # Find and extract client library from the running container
         # Different versions may have different file names or locations
+        LIB_PATH=""
         if docker exec firebird test -f /opt/firebird/lib/libfbclient.so.2; then
-          docker cp firebird:/opt/firebird/lib/libfbclient.so.2 ${{ github.workspace }}/libfbclient.so
+          # Get the actual file path by resolving the symlink
+          LIB_PATH=$(docker exec firebird readlink -f /opt/firebird/lib/libfbclient.so.2)
         elif docker exec firebird test -f /opt/firebird/lib/libfbclient.so; then
-          docker cp firebird:/opt/firebird/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+          LIB_PATH=$(docker exec firebird readlink -f /opt/firebird/lib/libfbclient.so)
         elif docker exec firebird test -f /usr/lib/libfbclient.so; then
-          docker cp firebird:/usr/lib/libfbclient.so ${{ github.workspace }}/libfbclient.so
+          LIB_PATH=$(docker exec firebird readlink -f /usr/lib/libfbclient.so)
         elif docker exec firebird test -f /usr/lib/x86_64-linux-gnu/libfbclient.so.2; then
-          docker cp firebird:/usr/lib/x86_64-linux-gnu/libfbclient.so.2 ${{ github.workspace }}/libfbclient.so
+          LIB_PATH=$(docker exec firebird readlink -f /usr/lib/x86_64-linux-gnu/libfbclient.so.2)
         else
           echo "Could not find libfbclient.so in container"
           exit 1
         fi
+        
+        echo "Copying library from: $LIB_PATH"
+        # Copy the actual library file (not the symlink)
+        docker cp firebird:$LIB_PATH ${{ github.workspace }}/libfbclient.so
         
         # Install to system
         sudo cp ${{ github.workspace }}/libfbclient.so /usr/lib/x86_64-linux-gnu/
