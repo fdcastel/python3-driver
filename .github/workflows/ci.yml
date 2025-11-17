@@ -67,13 +67,22 @@ jobs:
         docker logs firebird
         exit 1
     
+    - name: Extract and install Firebird client library from container
+      run: |
+        # Extract client library from the running container
+        docker cp firebird:/opt/firebird/lib/libfbclient.so /tmp/libfbclient.so
+        sudo cp /tmp/libfbclient.so /usr/lib/x86_64-linux-gnu/
+        sudo ldconfig
+        # Verify installation
+        ldconfig -p | grep libfbclient
+    
     - name: Verify database file exists
       run: |
         ls -la ${{ github.workspace }}/firebird-data/test-db.fdb
         docker exec firebird ls -la /var/lib/firebird/data/test-db.fdb
     
     - name: Run tests
-      run: hatch test -- --host=localhost --port=3050
+      run: hatch test -- --host=localhost --port=3050 -v
       env:
         FIREBIRD_VERSION: ${{ matrix.firebird-version }}
     
