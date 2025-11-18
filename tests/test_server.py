@@ -485,6 +485,18 @@ def test_nrestore(server_connection, service_test_env, db_file, fb_vars):
         assert rfdb.exists()
         if rfdb.exists():
             rfdb.unlink()
+    elif fb_vars['host'] is not None:
+        # For remote, delete again before second restore
+        import subprocess
+        try:
+            subprocess.run(
+                ['docker', 'exec', 'firebird', 'rm', '-f', rfdb],
+                capture_output=True,
+                timeout=5
+            )
+        except:
+            pass
+    
     server_connection.database.nrestore(backups=[fbk, fbk2], database=rfdb,
                       direct=True, flags=SrvNBackupFlag.NO_TRIGGERS)
     if hasattr(rfdb, 'exists'):
