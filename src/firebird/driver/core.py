@@ -2167,6 +2167,7 @@ def _connect_helper(dsn: str, host: str, port: str, database: str, protocol: Net
                 dsn += f'{host}:{port}'
             elif host:
                 dsn += host
+            dsn += f'/{database.lstrip("/")}'
         else:
             dsn = ''
             if host and host.startswith('\\\\'): # Windows Named Pipes
