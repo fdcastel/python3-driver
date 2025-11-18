@@ -44,7 +44,8 @@ def event_db(fb_vars, tmp_dir):
     
     con = None
     try:
-        con = create_database(dsn)
+        # Use overwrite=True to handle any leftover files from failed tests
+        con = create_database(dsn, overwrite=True)
         with con.cursor() as cur:
             cur.execute("CREATE TABLE T (PK Integer, C1 Integer)")
             cur.execute("""CREATE TRIGGER EVENTS_AU FOR T ACTIVE

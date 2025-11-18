@@ -45,21 +45,18 @@ def service_test_env(tmp_dir, fb_vars):
         rfdb_dsn = f'{host}/{port}:{rfdb_path}' if port else f'{host}:{rfdb_path}'
         use_pathlib = False
         
-        # For remote servers, try to delete old backup files through server connection
+        # For remote servers, try to delete old backup files via docker exec
         # This prevents "File exists" errors in nbackup tests
-        try:
-            from firebird.driver import connect_server
-            with connect_server(host) as svc:
-                # Try to delete backup files if they exist
-                for backup_path in [fbk_path, fbk2_path]:
-                    try:
-                        # Use nbackup to try to fixup and then delete won't work for backups
-                        # Just let the backup operation overwrite them
-                        pass
-                    except:
-                        pass
-        except:
-            pass  # Ignore cleanup errors
+        import subprocess
+        for backup_file in ['test_svc_db.fbk', 'test_svc_db.fbk2']:
+            try:
+                subprocess.run(
+                    ['docker', 'exec', 'firebird', 'rm', '-f', f'/var/lib/firebird/data/{backup_file}'],
+                    capture_output=True,
+                    timeout=5
+                )
+            except:
+                pass  # Ignore cleanup errors
     else:
         # Local server - use tmp directory
         from pathlib import Path
