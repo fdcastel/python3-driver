@@ -101,11 +101,6 @@ jobs:
         # Verify installation
         ldconfig -p | grep libfbclient
     
-    - name: Verify database file exists
-      run: |
-        # The database will be created by pytest in /tmp during test execution
-        echo "Database will be created in /tmp during test run"
-    
     - name: Run tests
       run: hatch test -- --host=localhost --port=3050 -v
       env:
