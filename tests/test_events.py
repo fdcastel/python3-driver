@@ -71,7 +71,24 @@ END""")
         yield con
     finally:
         if con is not None:
-            con.drop_database()
+            try:
+                # Try to close any active transactions first
+                if not con.is_closed():
+                    for trans in list(con.transactions):
+                        if trans.is_active():
+                            try:
+                                trans.rollback()
+                            except:
+                                pass
+                con.drop_database()
+            except Exception as e:
+                # If drop fails, try to at least close the connection
+                print(f"Warning: Failed to drop event database: {e}")
+                try:
+                    if not con.is_closed():
+                        con.close()
+                except:
+                    pass
 
 def test_one_event(event_db):
     def send_events(command_list):

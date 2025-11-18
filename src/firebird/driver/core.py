@@ -2167,14 +2167,24 @@ def _connect_helper(dsn: str, host: str, port: str, database: str, protocol: Net
                 dsn += f'{host}:{port}'
             elif host:
                 dsn += host
-            # Add database path - different rules for absolute vs relative paths
-            # - Unix absolute paths start with '/' - no extra '/' needed
-            # - Windows absolute paths contain ':' (e.g., C:\) - no extra '/' needed  
-            # - Relative paths/aliases need a '/' separator
-            if database.startswith('/') or ':' in database:
-                dsn += database
+            # Add database path
+            # When there's a host, URLs need '/' separator before the path, but the path
+            # itself should not have a leading '/' (it gets stripped by URL parsing)
+            # When there's no host (loopback), the path is used as-is
+            if host:
+                # For URLs with host, always add '/' separator and strip leading '/' from path
+                if database.startswith('/'):
+                    dsn += database  # Path already has '/', which becomes URL separator
+                elif ':' in database:  # Windows path
+                    dsn += f'/{database}'
+                else:  # Relative/alias
+                    dsn += f'/{database}'
             else:
-                dsn += f'/{database}'
+                # Loopback - path is used as-is after ://
+                if database.startswith('/') or ':' in database:
+                    dsn += database
+                else:
+                    dsn += f'/{database}'
         else:
             dsn = ''
             if host and host.startswith('\\\\'): # Windows Named Pipes
