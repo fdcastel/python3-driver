@@ -30,13 +30,19 @@ from firebird.driver import (create_database, DatabaseError, connect_server, Shu
 
 @pytest.fixture
 def event_db(fb_vars, tmp_dir):
-    event_file = tmp_dir / 'fbevents.fdb'
     host = fb_vars['host']
     port = fb_vars['port']
-    if host is None:
-        dsn = str(event_file)
-    else:
+    
+    if host is not None:
+        # Remote server - use database path in the container
+        event_file = '/var/lib/firebird/data/fbevents.fdb'
         dsn = f'{host}/{port}:{event_file}' if port else f'{host}:{event_file}'
+    else:
+        # Local server - use tmp directory
+        event_file = tmp_dir / 'fbevents.fdb'
+        dsn = str(event_file)
+    
+    con = None
     try:
         con = create_database(dsn)
         with con.cursor() as cur:
@@ -64,7 +70,8 @@ END""")
             con.commit()
         yield con
     finally:
-        con.drop_database()
+        if con is not None:
+            con.drop_database()
 
 def test_one_event(event_db):
     def send_events(command_list):

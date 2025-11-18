@@ -23,6 +23,7 @@
 # See LICENSE.TXT for details.
 
 import pytest
+from pathlib import Path
 from firebird.driver import (create_database, DatabaseError, connect_server, ShutdownMethod,
                              ShutdownMode, PageSize)
 
