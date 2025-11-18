@@ -30,24 +30,21 @@ from firebird.driver import (connect, create_database, connect_server, Isolation
 
 @pytest.fixture(scope="function") # Function scope for isolation
 def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
-    # Setup two databases for DTS tests - always use tmp_dir (bind-mounted in CI)
-    host = fb_vars['host']
-    
-    db1_path = str(tmp_dir / 'fbtest-dts-1.fdb')
-    db2_path = str(tmp_dir / 'fbtest-dts-2.fdb')
-    
+    # Setup two databases for DTS tests
+    db1_path = tmp_dir / 'fbtest-dts-1.fdb'
+    db2_path = tmp_dir / 'fbtest-dts-2.fdb'
     con1, con2 = None, None
     cfg1_name, cfg2_name = 'dts-1-test', 'dts-2-test'
 
     # Register configs
     cfg1 = driver_cfg.register_database(cfg1_name)
     cfg1.server.value = fb_vars['server']
-    cfg1.database.value = db1_path
+    cfg1.database.value = str(db1_path)
     cfg1.no_linger.value = True
 
     cfg2 = driver_cfg.register_database(cfg2_name)
     cfg2.server.value = fb_vars['server']
-    cfg2.database.value = db2_path
+    cfg2.database.value = str(db2_path)
     cfg2.no_linger.value = True
 
     # Create databases
@@ -63,45 +60,38 @@ def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
         # Cleanup if setup fails
         if con1 and not con1.is_closed(): con1.close()
         if con2 and not con2.is_closed(): con2.close()
-        # Try to delete the files
-        from pathlib import Path
-        db1_file = Path(db1_path)
-        db2_file = Path(db2_path)
-        if db1_file.exists(): db1_file.unlink()
-        if db2_file.exists(): db2_file.unlink()
+        if db1_path.exists(): db1_path.unlink()
+        if db2_path.exists(): db2_path.unlink()
         driver_cfg.databases.value = [db for db in driver_cfg.databases.value if db.name not in [cfg1_name, cfg2_name]]
         pytest.fail(f"Failed to set up distributed transaction databases: {e}")
 
-    yield con1, con2, db1_path, db2_path, cfg1_name, cfg2_name # Provide connections and paths
+    yield con1, con2, str(db1_path), str(db2_path), cfg1_name, cfg2_name # Provide connections and paths
 
     # Teardown
     if con1 and not con1.is_closed(): con1.close()
     if con2 and not con2.is_closed(): con2.close()
 
     # Ensure databases can be dropped (shutdown might be needed)
-    from pathlib import Path
-    for db_fpath_str in [db1_path, db2_path]:
-        db_fpath = Path(db_fpath_str)
-        if not db_fpath.exists():
-            continue
-        try:
-            with connect_server(fb_vars['server']) as svc:
-                svc.database.shutdown(database=db_fpath_str, mode=ShutdownMode.FULL,
-                                      method=ShutdownMethod.FORCED, timeout=0)
-                svc.database.bring_online(database=db_fpath_str)
-            # Use config name for connect-to-drop to ensure server is specified
-            db_conf_name = cfg1_name if db_fpath_str == db1_path else cfg2_name
-            with connect(db_conf_name) as con_drop:
-                con_drop.drop_database()
-        except Exception as e:
-            print(f"Warning: Could not drop DTS database {db_fpath_str}: {e}")
-        finally:
-            # Attempt unlink again just in case drop failed but left file
-            if db_fpath.exists():
-                try:
-                    db_fpath.unlink()
-                except OSError:
-                    print(f"Warning: Could not unlink DTS database file {db_fpath}")
+    for db_fpath in [db1_path, db2_path]:
+        if db_fpath.exists():
+            try:
+                with connect_server(fb_vars['server']) as svc:
+                    svc.database.shutdown(database=str(db_fpath), mode=ShutdownMode.FULL,
+                                          method=ShutdownMethod.FORCED, timeout=0)
+                    svc.database.bring_online(database=str(db_fpath))
+                # Use config name for connect-to-drop to ensure server is specified
+                db_conf_name = cfg1_name if str(db_fpath) == str(db1_path) else cfg2_name
+                with connect(db_conf_name) as con_drop:
+                    con_drop.drop_database()
+            except Exception as e:
+                print(f"Warning: Could not drop DTS database {db_fpath}: {e}")
+            finally:
+                # Attempt unlink again just in case drop failed but left file
+                if db_fpath.exists():
+                    try:
+                        db_fpath.unlink()
+                    except OSError:
+                        print(f"Warning: Could not unlink DTS database file {db_fpath}")
 
 def test_context_manager(distributed_transaction_dbs):
     con1, con2, _, _, _, _ = distributed_transaction_dbs
