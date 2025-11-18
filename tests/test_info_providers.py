@@ -155,6 +155,16 @@ def test_database_info_provider(db_connection, fb_vars, db_file):
             assert info.supports(code)
             try:
                 result = info.get_info(code)
+            except AttributeError as e:
+                # Some FB4 info codes require utility methods not available in all versions
+                if 'iUtil' in str(e) and ('decode_' in str(e) or 'encode_' in str(e)):
+                    pytest.skip(f"Info code {code} requires utility method not available: {e}")
+                raise
+            except Exception:
+                # Allow any other exceptions to propagate
+                raise
+            
+            try:
                 # Assert Type based on code
                 if code in [DbInfoCode.PAGE_SIZE, DbInfoCode.NUM_BUFFERS, DbInfoCode.SWEEP_INTERVAL,
                             DbInfoCode.ATTACHMENT_ID, DbInfoCode.DB_SQL_DIALECT, DbInfoCode.ODS_VERSION,

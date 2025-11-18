@@ -25,7 +25,7 @@
 import pytest
 from packaging.specifiers import SpecifierSet
 from firebird.driver import (Isolation, connect, tpb, TransactionManager,
-                             transaction, InterfaceError, TPB, TableShareMode,
+                             transaction, InterfaceError, DatabaseError, TPB, TableShareMode,
                              TableAccessMode, TraInfoCode, TraInfoAccess, TraAccessMode,
                              DefaultAction)
 
