@@ -91,11 +91,7 @@ END""")
                 except:
                     pass
 
-def test_one_event(event_db, fb_vars):
-    # Events might not work properly with remote servers in Docker due to networking
-    if fb_vars['host'] is not None:
-        pytest.skip("Event tests skipped for remote Docker servers (networking limitations)")
-    
+def test_one_event(event_db):
     def send_events(command_list):
         with event_db.cursor() as cur:
             for cmd in command_list:
@@ -110,11 +106,7 @@ def test_one_event(event_db, fb_vars):
     timed_event.join()
     assert e == {'insert_1': 1}
 
-def test_multiple_events(event_db, fb_vars):
-    # Events might not work properly with remote servers in Docker due to networking
-    if fb_vars['host'] is not None:
-        pytest.skip("Event tests skipped for remote Docker servers (networking limitations)")
-    
+def test_multiple_events(event_db):
     def send_events(command_list):
         with event_db.cursor() as cur:
             for cmd in command_list:
@@ -133,11 +125,7 @@ def test_multiple_events(event_db, fb_vars):
     timed_event.join()
     assert e == {'insert_3': 1, 'insert_1': 2}
 
-def test_20_events(event_db, fb_vars):
-    # Events might not work properly with remote servers in Docker due to networking
-    if fb_vars['host'] is not None:
-        pytest.skip("Event tests skipped for remote Docker servers (networking limitations)")
-    
+def test_20_events(event_db):
     def send_events(command_list):
         with event_db.cursor() as cur:
             for cmd in command_list:
@@ -162,11 +150,7 @@ def test_20_events(event_db, fb_vars):
                  'I': 0, 'H': 0, 'K': 0, 'J': 0, 'M': 0, 'L': 0, 'O': 0, 'N': 0,
                  'Q': 0, 'P': 0, 'R': 0, 'insert_3': 1, 'F': 0}
 
-def test_flush_events(event_db, fb_vars):
-    # Events might not work properly with remote servers in Docker due to networking
-    if fb_vars['host'] is not None:
-        pytest.skip("Event tests skipped for remote Docker servers (networking limitations)")
-    
+def test_flush_events(event_db):
     def send_events(command_list):
         with event_db.cursor() as cur:
             for cmd in command_list:
