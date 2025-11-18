@@ -30,21 +30,15 @@ from firebird.driver import (create_database, DatabaseError, connect_server, Shu
 
 @pytest.fixture
 def event_db(fb_vars, tmp_dir):
+    event_file = tmp_dir / 'fbevents.fdb'
     host = fb_vars['host']
     port = fb_vars['port']
-    
-    # Always use tmp_dir - it's bind-mounted in CI
-    event_file = tmp_dir / 'fbevents.fdb'
-    
     if host is None:
         dsn = str(event_file)
     else:
-        dsn = f'{host}/{port}:{str(event_file)}' if port else f'{host}:{str(event_file)}'
-    
-    con = None
+        dsn = f'{host}/{port}:{event_file}' if port else f'{host}:{event_file}'
+    con = create_database(dsn)
     try:
-        # Use overwrite=True to handle any leftover files from failed tests
-        con = create_database(dsn, overwrite=True)
         with con.cursor() as cur:
             cur.execute("CREATE TABLE T (PK Integer, C1 Integer)")
             cur.execute("""CREATE TRIGGER EVENTS_AU FOR T ACTIVE
@@ -70,25 +64,7 @@ END""")
             con.commit()
         yield con
     finally:
-        if con is not None:
-            try:
-                # Try to close any active transactions first
-                if not con.is_closed():
-                    for trans in list(con.transactions):
-                        if trans.is_active():
-                            try:
-                                trans.rollback()
-                            except:
-                                pass
-                con.drop_database()
-            except Exception as e:
-                # If drop fails, try to at least close the connection
-                print(f"Warning: Failed to drop event database: {e}")
-                try:
-                    if not con.is_closed():
-                        con.close()
-                except:
-                    pass
+        con.drop_database()
 
 def test_one_event(event_db):
     def send_events(command_list):
