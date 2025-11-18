@@ -316,7 +316,8 @@ def test_tpb_at_snapshot_number(fb_vars, db_connection):
         tpb_snap = TPB(isolation=Isolation.SNAPSHOT, at_snapshot_number=snapshot_no)
         tr_snap.begin(tpb=tpb_snap.get_buffer())
     except DatabaseError as e:
-        # Known issue in some FB4.0 versions with at_snapshot_number
+        # FIXME: Passing "at_snapshot_number" causes the following test to fail on Firebird 4+ (works on Firebird 3):
+        #   tests/test_param_buffers.py::test_tpb_parsing - firebird.driver.types.DatabaseError: Internal error when using clumplet API: attempt to store data in dataless clumplet
         if "clumplet API" in str(e) or "dataless clumplet" in str(e):
             pytest.skip(f"at_snapshot_number not fully supported in this FB version: {e}")
         raise
