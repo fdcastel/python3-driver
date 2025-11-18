@@ -34,50 +34,31 @@ from firebird.driver import (connect, connect_server, create_database, Error, Da
 
 @pytest.fixture
 def service_test_env(tmp_dir, fb_vars):
+    # Always use tmp_dir paths - these will be bind-mounted in CI
+    from pathlib import Path
+    rfdb_path = tmp_dir / 'test_svc_db.fdb'
+    fbk_path = tmp_dir / 'test_svc_db.fbk'
+    fbk2_path = tmp_dir / 'test_svc_db.fbk2'
+    
+    # Construct DSN based on host
     host = fb_vars['host']
     port = fb_vars['port']
-    
-    if host is not None:
-        # Remote server - use paths in the container
-        rfdb_path = '/var/lib/firebird/data/test_svc_db.fdb'
-        fbk_path = '/var/lib/firebird/data/test_svc_db.fbk'
-        fbk2_path = '/var/lib/firebird/data/test_svc_db.fbk2'
-        rfdb_dsn = f'{host}/{port}:{rfdb_path}' if port else f'{host}:{rfdb_path}'
-        use_pathlib = False
-        
-        # For remote servers, try to delete old backup files via docker exec
-        # This prevents "File exists" errors in nbackup tests
-        import subprocess
-        for backup_file in ['test_svc_db.fbk', 'test_svc_db.fbk2']:
-            try:
-                subprocess.run(
-                    ['docker', 'exec', 'firebird', 'rm', '-f', f'/var/lib/firebird/data/{backup_file}'],
-                    capture_output=True,
-                    timeout=5
-                )
-            except:
-                pass  # Ignore cleanup errors
-    else:
-        # Local server - use tmp directory
-        from pathlib import Path
-        rfdb_path = tmp_dir / 'test_svc_db.fdb'
-        fbk_path = tmp_dir / 'test_svc_db.fbk'
-        fbk2_path = tmp_dir / 'test_svc_db.fbk2'
+    if host is None:
         rfdb_dsn = str(rfdb_path)
-        use_pathlib = True
-        
-        # Ensure parent directories exist (only for local)
-        rfdb_path.parent.mkdir(parents=True, exist_ok=True)
-        fbk_path.parent.mkdir(parents=True, exist_ok=True)
-        fbk2_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Clean up old backup files if they exist (local only)
-        for f_path in [fbk_path, fbk2_path]:
-            if f_path.exists():
-                try:
-                    f_path.unlink()
-                except OSError:
-                    pass
+    else:
+        # For remote servers, use absolute path with host:port prefix
+        rfdb_dsn = f'{host}/{port}:{str(rfdb_path)}' if port else f'{host}:{str(rfdb_path)}'
+    
+    # Ensure parent directories exist
+    rfdb_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Clean up old backup files if they exist
+    for f_path in [fbk_path, fbk2_path]:
+        if f_path.exists():
+            try:
+                f_path.unlink()
+            except OSError:
+                pass
 
     # Ensure the restore target DB exists and is clean
     try:
@@ -87,20 +68,19 @@ def service_test_env(tmp_dir, fb_vars):
         pytest.fail(f"Failed to create restore target DB {rfdb_path}: {e}")
 
     yield {
-        "rfdb": rfdb_path if not use_pathlib else rfdb_path,
+        "rfdb": rfdb_path,
         "rfdb_dsn": rfdb_dsn,
-        "fbk": fbk_path if not use_pathlib else fbk_path,
-        "fbk2": fbk2_path if not use_pathlib else fbk2_path
+        "fbk": fbk_path,
+        "fbk2": fbk2_path
     }
 
-    # Teardown: remove created files (only for local servers)
-    if use_pathlib:
-        for f_path in [rfdb_path, fbk_path, fbk2_path]:
-            if f_path.exists():
-                try:
-                    f_path.unlink()
-                except OSError:
-                    pass # Ignore if removal fails
+    # Teardown: remove created files
+    for f_path in [rfdb_path, fbk_path, fbk2_path]:
+        if f_path.exists():
+            try:
+                f_path.unlink()
+            except OSError:
+                pass # Ignore if removal fails
 
 def test_attach(server_connection):
     # The fixture itself tests attachment
@@ -325,9 +305,7 @@ def test_backup(server_connection, db_file, service_test_env):
     # fetch materialized
     report = server_connection.readlines()
     assert not server_connection.is_running()
-    # Check file exists only for local servers (Path objects)
-    if hasattr(fbk, 'exists'):
-        assert fbk.exists()
+    assert fbk.exists()
     assert isinstance(report, type(list()))
     assert report == []
     # iterate over result
@@ -370,9 +348,7 @@ def test_restore(server_connection, db_file, service_test_env):
     fbk = service_test_env['fbk']
     output = []
     server_connection.database.backup(database=db_file, backup=fbk, callback=fetchline)
-    # Check file exists only for local servers (Path objects)
-    if hasattr(fbk, 'exists'):
-        assert fbk.exists()
+    assert fbk.exists()
     server_connection.database.restore(backup=fbk, database=rfdb, flags=SrvRestoreFlag.REPLACE)
     assert server_connection.is_running()
     # fetch materialized
@@ -412,11 +388,6 @@ def test_local_backup(server_connection, db_file, service_test_env):
     server_connection.database.backup(database=db_file, backup=fbk)
     server_connection.wait()
     
-    # Skip file comparison for remote servers (can't access remote files)
-    if isinstance(fbk, str):
-        pytest.skip("File comparison not possible for remote servers")
-        return
-    
     try:
         with open(fbk, mode='rb') as f:
             f.seek(68)  # We must skip after backup creation time (68) that will differ
@@ -442,21 +413,16 @@ def test_local_restore(server_connection, db_file, service_test_env):
     backup_stream.seek(0)
     server_connection.database.local_restore(backup_stream=backup_stream, database=rfdb,
                                              flags=SrvRestoreFlag.REPLACE)
-    # Check file exists only for local servers (Path objects)
-    if hasattr(rfdb, 'exists'):
-        assert rfdb.exists()
+    assert rfdb.exists()
 
 def test_nbackup(server_connection, service_test_env, db_file):
     fbk = service_test_env['fbk']
     fbk2 = service_test_env['fbk2']
     server_connection.database.nbackup(database=db_file, backup=fbk)
-    # Check file exists only for local servers (Path objects)
-    if hasattr(fbk, 'exists'):
-        assert fbk.exists()
+    assert fbk.exists()
     server_connection.database.nbackup(database=db_file, backup=fbk2, level=1,
                               direct=True, flags=SrvNBackupFlag.NO_TRIGGERS)
-    if hasattr(fbk2, 'exists'):
-        assert fbk2.exists()
+    assert fbk2.exists()
 
 def test_nrestore(server_connection, service_test_env, db_file, fb_vars):
     rfdb = service_test_env['rfdb']
@@ -465,42 +431,17 @@ def test_nrestore(server_connection, service_test_env, db_file, fb_vars):
     test_nbackup(server_connection, service_test_env, db_file)
     
     # Remove the restored DB if it exists
-    if hasattr(rfdb, 'exists') and rfdb.exists():
-        # Local server
+    if rfdb.exists():
         rfdb.unlink()
-    elif fb_vars['host'] is not None:
-        # Remote server - use docker exec to delete the file
-        import subprocess
-        try:
-            subprocess.run(
-                ['docker', 'exec', 'firebird', 'rm', '-f', rfdb],
-                capture_output=True,
-                timeout=5
-            )
-        except:
-            pass  # Ignore if deletion fails
     
     server_connection.database.nrestore(backups=[fbk], database=rfdb)
-    if hasattr(rfdb, 'exists'):
-        assert rfdb.exists()
-        if rfdb.exists():
-            rfdb.unlink()
-    elif fb_vars['host'] is not None:
-        # For remote, delete again before second restore
-        import subprocess
-        try:
-            subprocess.run(
-                ['docker', 'exec', 'firebird', 'rm', '-f', rfdb],
-                capture_output=True,
-                timeout=5
-            )
-        except:
-            pass
+    assert rfdb.exists()
+    if rfdb.exists():
+        rfdb.unlink()
     
     server_connection.database.nrestore(backups=[fbk, fbk2], database=rfdb,
                       direct=True, flags=SrvNBackupFlag.NO_TRIGGERS)
-    if hasattr(rfdb, 'exists'):
-        assert rfdb.exists()
+    assert rfdb.exists()
 
 def test_set_default_cache_size(server_connection, service_test_env):
     rfdb = service_test_env['rfdb']

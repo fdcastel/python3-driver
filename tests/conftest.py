@@ -194,17 +194,11 @@ def tmp_dir(tmp_path_factory):
 
 @pytest.fixture(scope='session', autouse=True)
 def db_file(tmp_dir):
-    # For remote servers (Docker), use the database path in the container
-    # For local servers, copy database to tmp directory
-    if _vars_['host'] is not None:
-        # Remote server - database is already in the container at /var/lib/firebird/data/
-        test_db_filename = Path('/var/lib/firebird/data/test-db.fdb')
-    else:
-        # Local server - copy database to tmp directory
-        test_db_filename = tmp_dir / 'test-db.fdb'
-        copyfile(_vars_['source_db'], test_db_filename)
-        if _platform != 'Windows':
-            test_db_filename.chmod(33206)
+    # Always use local tmp_dir - in CI, this will be bind-mounted to the container
+    test_db_filename = tmp_dir / 'test-db.fdb'
+    copyfile(_vars_['source_db'], test_db_filename)
+    if _platform != 'Windows':
+        test_db_filename.chmod(33206)
     driver_config.get_database('pytest').database.value = str(test_db_filename)
     return test_db_filename
 
@@ -215,7 +209,9 @@ def dsn(db_file):
     if host is None:
         result = str(db_file)
     else:
-        result = f'{host}/{port}:{db_file}' if port else f'{host}:{db_file}'
+        # For remote servers, use the absolute path string of the local file
+        # which will be the same path inside the container due to bind mount
+        result = f'{host}/{port}:{str(db_file)}' if port else f'{host}:{str(db_file)}'
     yield result
 
 @pytest.fixture()

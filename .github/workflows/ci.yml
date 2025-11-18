@@ -36,14 +36,11 @@ jobs:
     
     - name: Start Firebird Docker container
       run: |
-        # Create a data directory for Firebird
-        mkdir -p ${{ github.workspace }}/firebird-data
+        # Create a tmp directory that will be bind-mounted to the container
+        # This ensures test files are accessible at the same paths inside and outside the container
+        mkdir -p /tmp/firebird-test
         
-        # Copy the test database to the data directory
-        cp tests/${{ matrix.db-file }} ${{ github.workspace }}/firebird-data/test-db.fdb
-        chmod 666 ${{ github.workspace }}/firebird-data/test-db.fdb
-        
-        # Start Firebird container with the data directory mounted
+        # Start Firebird container with /tmp bind-mounted
         # Configure RemoteAuxPort for Firebird events support
         docker run -d \
           --name firebird \
@@ -52,7 +49,7 @@ jobs:
           -e FIREBIRD_CONF_RemoteAuxPort=3051 \
           -p 3050:3050 \
           -p 3051:3051 \
-          -v ${{ github.workspace }}/firebird-data:/var/lib/firebird/data:rw \
+          -v /tmp:/tmp:rw \
           ${{ matrix.docker-image }}
     
     - name: Wait for Firebird to be ready
@@ -106,8 +103,8 @@ jobs:
     
     - name: Verify database file exists
       run: |
-        ls -la ${{ github.workspace }}/firebird-data/test-db.fdb
-        docker exec firebird ls -la /var/lib/firebird/data/test-db.fdb
+        # The database will be created by pytest in /tmp during test execution
+        echo "Database will be created in /tmp during test run"
     
     - name: Run tests
       run: hatch test -- --host=localhost --port=3050 -v
