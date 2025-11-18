@@ -82,14 +82,14 @@ def test_connect_helper():
     dsn = driver.core._connect_helper(None, HOST, None, DB_ALIAS, NetProtocol.INET)
     assert dsn == f'inet://{HOST}/{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, IP, None, DB_LINUX_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{IP}{DB_LINUX_PATH}'
+    assert dsn == f'inet://{IP}/{DB_LINUX_PATH}'  # Double slash for absolute path
     dsn = driver.core._connect_helper(None, HOST, None, DB_WIN_PATH, NetProtocol.INET)
     assert dsn == f'inet://{HOST}{DB_WIN_PATH}'
     # 3. TCP/IP with Port
     dsn = driver.core._connect_helper(None, HOST, PORT, DB_ALIAS, NetProtocol.INET)
     assert dsn == f'inet://{HOST}:{PORT}/{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, IP, PORT, DB_LINUX_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{IP}:{PORT}{DB_LINUX_PATH}'
+    assert dsn == f'inet://{IP}:{PORT}/{DB_LINUX_PATH}'  # Double slash for absolute path
     dsn = driver.core._connect_helper(None, HOST, SVC_NAME, DB_WIN_PATH, NetProtocol.INET)
     assert dsn == f'inet://{HOST}:{SVC_NAME}{DB_WIN_PATH}'
     # 4. Named pipes
