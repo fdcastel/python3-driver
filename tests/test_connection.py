@@ -162,7 +162,12 @@ def test_connect_config(fb_vars, db_file, driver_cfg):
 
     if host:
         # protocols
-        dsn = f'{host}:{port}{db_file}'
+        # For protocol URLs with absolute paths, we need double slash to preserve leading /
+        # inet://host//absolute/path so Firebird doesn't strip the leading /
+        if str(db_file).startswith('/'):
+            dsn = f'{host}:{port}/{db_file}'  # Extra / for absolute paths
+        else:
+            dsn = f'{host}:{port}{db_file}'
         cfg = driver_cfg.get_database('test_db1')
         cfg.protocol.value = NetProtocol.INET
         with connect('test_db1') as con:

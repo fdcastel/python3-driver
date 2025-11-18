@@ -2168,15 +2168,19 @@ def _connect_helper(dsn: str, host: str, port: str, database: str, protocol: Net
             elif host:
                 dsn += host
             # Add database path
-            # When there's a host, URLs need '/' separator before the path, but the path
-            # itself should not have a leading '/' (it gets stripped by URL parsing)
+            # When there's a host, URLs need proper path formatting:
+            # - Unix absolute paths (start with '/') - need double slash to preserve the leading /
+            #   because Firebird URL parsing strips one /
+            # - Windows absolute paths (contain ':') - concatenate directly without separator
+            # - Aliases/relative paths - need '/' separator
             # When there's no host (loopback), the path is used as-is
             if host:
-                # For URLs with host, always add '/' separator and strip leading '/' from path
+                # For URLs with host
                 if database.startswith('/'):
-                    dsn += database  # Path already has '/', which becomes URL separator
-                elif ':' in database:  # Windows path
-                    dsn += f'/{database}'
+                    # Unix absolute path - use double slash so Firebird keeps the leading /
+                    dsn += f'/{database}'  # Results in inet://host//absolute/path
+                elif ':' in database:  # Windows path (e.g., C:\...)
+                    dsn += database  # Concatenate directly without separator
                 else:  # Relative/alias
                     dsn += f'/{database}'
             else:
