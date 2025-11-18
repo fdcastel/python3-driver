@@ -458,14 +458,28 @@ def test_nbackup(server_connection, service_test_env, db_file):
     if hasattr(fbk2, 'exists'):
         assert fbk2.exists()
 
-def test_nrestore(server_connection, service_test_env, db_file):
+def test_nrestore(server_connection, service_test_env, db_file, fb_vars):
     rfdb = service_test_env['rfdb']
     fbk = service_test_env['fbk']
     fbk2 = service_test_env['fbk2']
     test_nbackup(server_connection, service_test_env, db_file)
-    # Remove the restored DB if it exists (only for local servers)
+    
+    # Remove the restored DB if it exists
     if hasattr(rfdb, 'exists') and rfdb.exists():
+        # Local server
         rfdb.unlink()
+    elif fb_vars['host'] is not None:
+        # Remote server - use docker exec to delete the file
+        import subprocess
+        try:
+            subprocess.run(
+                ['docker', 'exec', 'firebird', 'rm', '-f', rfdb],
+                capture_output=True,
+                timeout=5
+            )
+        except:
+            pass  # Ignore if deletion fails
+    
     server_connection.database.nrestore(backups=[fbk], database=rfdb)
     if hasattr(rfdb, 'exists'):
         assert rfdb.exists()
