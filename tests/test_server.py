@@ -34,21 +34,16 @@ from firebird.driver import (connect, connect_server, create_database, Error, Da
 
 @pytest.fixture
 def service_test_env(tmp_dir, fb_vars):
-    # Always use tmp_dir paths - these will be bind-mounted in CI
-    from pathlib import Path
     rfdb_path = tmp_dir / 'test_svc_db.fdb'
     fbk_path = tmp_dir / 'test_svc_db.fbk'
     fbk2_path = tmp_dir / 'test_svc_db.fbk2'
-    
-    # Construct DSN based on host
     host = fb_vars['host']
     port = fb_vars['port']
     if host is None:
         rfdb_dsn = str(rfdb_path)
     else:
-        # For remote servers, use absolute path with host:port prefix
-        rfdb_dsn = f'{host}/{port}:{str(rfdb_path)}' if port else f'{host}:{str(rfdb_path)}'
-    
+        rfdb_dsn = f'{host}/{port}:{rfdb_path}' if port else f'{host}:{rfdb_path}'
+
     # Ensure parent directories exist
     rfdb_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -387,14 +382,9 @@ def test_local_backup(server_connection, db_file, service_test_env):
     fbk = service_test_env['fbk']
     server_connection.database.backup(database=db_file, backup=fbk)
     server_connection.wait()
-    
-    try:
-        with open(fbk, mode='rb') as f:
-            f.seek(68)  # We must skip after backup creation time (68) that will differ
-            bkp = f.read()
-    except PermissionError:
-        pytest.skip("Permission denied on backup file")
-        return
+    with open(fbk, mode='rb') as f:
+        f.seek(68)  # We must skip after backup creation time (68) that will differ
+        bkp = f.read()
     backup_stream = BytesIO()
     server_connection.database.local_backup(database=db_file, backup_stream=backup_stream)
     backup_stream.seek(68)
@@ -424,7 +414,7 @@ def test_nbackup(server_connection, service_test_env, db_file):
                               direct=True, flags=SrvNBackupFlag.NO_TRIGGERS)
     assert fbk2.exists()
 
-def test_nrestore(server_connection, service_test_env, db_file, fb_vars):
+def test_nrestore(server_connection, service_test_env, db_file):
     rfdb = service_test_env['rfdb']
     fbk = service_test_env['fbk']
     fbk2 = service_test_env['fbk2']
