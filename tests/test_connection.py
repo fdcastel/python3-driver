@@ -69,34 +69,34 @@ def test_connect_helper():
     # URL-Style Connection Strings (with protocol)
     # 1. Loopback connection
     dsn = driver.core._connect_helper(None, None, None, DB_ALIAS, NetProtocol.INET)
-    assert dsn == f'inet://{DB_ALIAS}'
+    assert dsn == f'inet:///{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, None, None, DB_LINUX_PATH, NetProtocol.INET)
     assert dsn == f'inet://{DB_LINUX_PATH}'
     dsn = driver.core._connect_helper(None, None, None, DB_WIN_PATH, NetProtocol.INET)
     assert dsn == f'inet://{DB_WIN_PATH}'
     dsn = driver.core._connect_helper(None, None, None, DB_ALIAS, NetProtocol.WNET)
-    assert dsn == f'wnet://{DB_ALIAS}'
+    assert dsn == f'wnet:///{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, None, None, DB_ALIAS, NetProtocol.XNET)
-    assert dsn == f'xnet://{DB_ALIAS}'
+    assert dsn == f'xnet:///{DB_ALIAS}'
     # 2. TCP/IP
     dsn = driver.core._connect_helper(None, HOST, None, DB_ALIAS, NetProtocol.INET)
     assert dsn == f'inet://{HOST}/{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, IP, None, DB_LINUX_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{IP}/{DB_LINUX_PATH}'
+    assert dsn == f'inet://{IP}{DB_LINUX_PATH}'
     dsn = driver.core._connect_helper(None, HOST, None, DB_WIN_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{HOST}/{DB_WIN_PATH}'
+    assert dsn == f'inet://{HOST}{DB_WIN_PATH}'
     # 3. TCP/IP with Port
     dsn = driver.core._connect_helper(None, HOST, PORT, DB_ALIAS, NetProtocol.INET)
     assert dsn == f'inet://{HOST}:{PORT}/{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, IP, PORT, DB_LINUX_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{IP}:{PORT}/{DB_LINUX_PATH}'
+    assert dsn == f'inet://{IP}:{PORT}{DB_LINUX_PATH}'
     dsn = driver.core._connect_helper(None, HOST, SVC_NAME, DB_WIN_PATH, NetProtocol.INET)
-    assert dsn == f'inet://{HOST}:{SVC_NAME}/{DB_WIN_PATH}'
+    assert dsn == f'inet://{HOST}:{SVC_NAME}{DB_WIN_PATH}'
     # 4. Named pipes
     dsn = driver.core._connect_helper(None, NPIPE_HOST, None, DB_ALIAS, NetProtocol.WNET)
     assert dsn == f'wnet://{NPIPE_HOST}/{DB_ALIAS}'
     dsn = driver.core._connect_helper(None, NPIPE_HOST, SVC_NAME, DB_WIN_PATH, NetProtocol.WNET)
-    assert dsn == f'wnet://{NPIPE_HOST}:{SVC_NAME}/{DB_WIN_PATH}'
+    assert dsn == f'wnet://{NPIPE_HOST}:{SVC_NAME}{DB_WIN_PATH}'
 
 def test_connect_dsn(dsn, db_file):
     with connect(dsn) as con:
