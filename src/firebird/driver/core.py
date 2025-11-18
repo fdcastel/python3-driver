@@ -2167,9 +2167,11 @@ def _connect_helper(dsn: str, host: str, port: str, database: str, protocol: Net
                 dsn += f'{host}:{port}'
             elif host:
                 dsn += host
-            # Add database path - if it starts with '/', it's absolute and no extra '/' needed
-            # If it doesn't start with '/', we need a '/' separator
-            if database.startswith('/'):
+            # Add database path - different rules for absolute vs relative paths
+            # - Unix absolute paths start with '/' - no extra '/' needed
+            # - Windows absolute paths contain ':' (e.g., C:\) - no extra '/' needed  
+            # - Relative paths/aliases need a '/' separator
+            if database.startswith('/') or ':' in database:
                 dsn += database
             else:
                 dsn += f'/{database}'
