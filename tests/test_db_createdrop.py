@@ -28,7 +28,12 @@ from firebird.driver import (create_database, DatabaseError, connect_server, Shu
 
 @pytest.fixture
 def droptest_file(fb_vars, tmp_dir):
-    drop_file = tmp_dir / 'droptest.fdb'
+    if fb_vars['host'] is not None:
+        # Remote server - use database path in the container
+        drop_file = Path('/var/lib/firebird/data/droptest.fdb')
+    else:
+        # Local server - use tmp directory
+        drop_file = tmp_dir / 'droptest.fdb'
     # Setup: Ensure file doesn't exist
     if drop_file.exists():
         drop_file.unlink()
