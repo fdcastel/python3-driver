@@ -30,17 +30,11 @@ from firebird.driver import (connect, create_database, connect_server, Isolation
 
 @pytest.fixture(scope="function") # Function scope for isolation
 def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
-    # Setup two databases for DTS tests
+    # Setup two databases for DTS tests - always use tmp_dir (bind-mounted in CI)
     host = fb_vars['host']
     
-    if host is not None:
-        # Remote server - use database paths in the container
-        db1_path = '/var/lib/firebird/data/fbtest-dts-1.fdb'
-        db2_path = '/var/lib/firebird/data/fbtest-dts-2.fdb'
-    else:
-        # Local server - use tmp directory
-        db1_path = str(tmp_dir / 'fbtest-dts-1.fdb')
-        db2_path = str(tmp_dir / 'fbtest-dts-2.fdb')
+    db1_path = str(tmp_dir / 'fbtest-dts-1.fdb')
+    db2_path = str(tmp_dir / 'fbtest-dts-2.fdb')
     
     con1, con2 = None, None
     cfg1_name, cfg2_name = 'dts-1-test', 'dts-2-test'
@@ -69,13 +63,12 @@ def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
         # Cleanup if setup fails
         if con1 and not con1.is_closed(): con1.close()
         if con2 and not con2.is_closed(): con2.close()
-        # For local servers, try to delete the files
-        if host is None:
-            from pathlib import Path
-            db1_file = Path(db1_path)
-            db2_file = Path(db2_path)
-            if db1_file.exists(): db1_file.unlink()
-            if db2_file.exists(): db2_file.unlink()
+        # Try to delete the files
+        from pathlib import Path
+        db1_file = Path(db1_path)
+        db2_file = Path(db2_path)
+        if db1_file.exists(): db1_file.unlink()
+        if db2_file.exists(): db2_file.unlink()
         driver_cfg.databases.value = [db for db in driver_cfg.databases.value if db.name not in [cfg1_name, cfg2_name]]
         pytest.fail(f"Failed to set up distributed transaction databases: {e}")
 
@@ -86,19 +79,11 @@ def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
     if con2 and not con2.is_closed(): con2.close()
 
     # Ensure databases can be dropped (shutdown might be needed)
-    # For remote servers, we can't directly check if files exist
-    if host is None:
-        from pathlib import Path
-        db_files = [Path(db1_path), Path(db2_path)]
-    else:
-        db_files = []  # Can't check remote file existence easily
-    
+    from pathlib import Path
     for db_fpath_str in [db1_path, db2_path]:
-        if host is None:
-            from pathlib import Path
-            db_fpath = Path(db_fpath_str)
-            if not db_fpath.exists():
-                continue
+        db_fpath = Path(db_fpath_str)
+        if not db_fpath.exists():
+            continue
         try:
             with connect_server(fb_vars['server']) as svc:
                 svc.database.shutdown(database=db_fpath_str, mode=ShutdownMode.FULL,
@@ -111,15 +96,12 @@ def distributed_transaction_dbs(driver_cfg, tmp_dir, fb_vars):
         except Exception as e:
             print(f"Warning: Could not drop DTS database {db_fpath_str}: {e}")
         finally:
-            # Attempt unlink again just in case drop failed but left file (only for local)
-            if host is None:
-                from pathlib import Path
-                db_fpath = Path(db_fpath_str)
-                if db_fpath.exists():
-                    try:
-                        db_fpath.unlink()
-                    except OSError:
-                        print(f"Warning: Could not unlink DTS database file {db_fpath}")
+            # Attempt unlink again just in case drop failed but left file
+            if db_fpath.exists():
+                try:
+                    db_fpath.unlink()
+                except OSError:
+                    print(f"Warning: Could not unlink DTS database file {db_fpath}")
 
 def test_context_manager(distributed_transaction_dbs):
     con1, con2, _, _, _, _ = distributed_transaction_dbs

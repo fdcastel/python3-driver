@@ -145,7 +145,7 @@ def test_transaction_info(db_connection, db_file, fb_vars):
         if host is None:
             expected_db = str(db_file).upper()
         else:
-            expected_db = f'{host}/{fb_vars["port"]}:{db_file}'.upper()
+            expected_db = f'{host}/{fb_vars["port"]}:{str(db_file)}'.upper()
         assert tr.info.database.upper() == expected_db
         assert tr.info.isolation == Isolation.SNAPSHOT
 

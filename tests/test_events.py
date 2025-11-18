@@ -33,14 +33,13 @@ def event_db(fb_vars, tmp_dir):
     host = fb_vars['host']
     port = fb_vars['port']
     
-    if host is not None:
-        # Remote server - use database path in the container
-        event_file = '/var/lib/firebird/data/fbevents.fdb'
-        dsn = f'{host}/{port}:{event_file}' if port else f'{host}:{event_file}'
-    else:
-        # Local server - use tmp directory
-        event_file = tmp_dir / 'fbevents.fdb'
+    # Always use tmp_dir - it's bind-mounted in CI
+    event_file = tmp_dir / 'fbevents.fdb'
+    
+    if host is None:
         dsn = str(event_file)
+    else:
+        dsn = f'{host}/{port}:{str(event_file)}' if port else f'{host}:{str(event_file)}'
     
     con = None
     try:

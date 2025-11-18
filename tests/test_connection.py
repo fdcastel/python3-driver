@@ -108,21 +108,14 @@ def test_connect_dsn(dsn, db_file):
 def test_connect_config(fb_vars, db_file, driver_cfg):
     host = fb_vars['host']
     port = fb_vars['port']
+    
+    # Construct server config
     if host is None:
         srv_config = f"""
             [server.local]
             user = {fb_vars['user']}
             password = {fb_vars['password']}
             """
-        db_config = f"""
-            [test_db1]
-            server = server.local
-            database = {db_file}
-            utf8filename = true
-            charset = UTF8
-            sql_dialect = 3
-            """
-        dsn = str(db_file)
     else:
         srv_config = f"""
             [server.local]
@@ -131,15 +124,23 @@ def test_connect_config(fb_vars, db_file, driver_cfg):
             password = {fb_vars['password']}
             port = {port if port else ''}
             """
-        db_config = f"""
-            [test_db1]
-            server = server.local
-            database = {db_file}
-            utf8filename = true
-            charset = UTF8
-            sql_dialect = 3
-            """
-        dsn = f'{host}/{port}:{db_file}' if port else f'{host}:{db_file}'
+    
+    # Database config is uniform - always use the file path
+    db_config = f"""
+        [test_db1]
+        server = server.local
+        database = {db_file}
+        utf8filename = true
+        charset = UTF8
+        sql_dialect = 3
+        """
+    
+    # Construct DSN
+    if host is None:
+        dsn = str(db_file)
+    else:
+        dsn = f'{host}/{port}:{str(db_file)}' if port else f'{host}:{str(db_file)}'
+    
     # Ensure config sections don't exist from previous runs
     if driver_cfg.get_server('server.local'):
         driver_cfg.servers.value = [s for s in driver_cfg.servers.value if s.name != 'server.local']
